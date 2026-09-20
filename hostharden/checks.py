@@ -9,6 +9,9 @@ see NOTICE.md for the tools that inspired the general approach.
 
 from __future__ import annotations
 
+import re
+import shlex
+
 from .models import CheckResult
 
 _WEAK_CIPHERS = ("arcfour", "3des", "blowfish", "cbc", "des")
@@ -18,6 +21,22 @@ _WEAK_KEX = ("diffie-hellman-group1-sha1", "diffie-hellman-group14-sha1", "gss-g
 
 def _yes(value: str | None) -> bool:
     return (value or "").strip().lower() == "yes"
+
+
+_TIME_PART_RE = re.compile(r"(\d+)([smhdw]?)", re.IGNORECASE)
+_TIME_MULTIPLIER = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
+
+
+def _duration_seconds(value: str) -> int | None:
+    """Parse OpenSSH-style duration strings such as ``30s`` or ``1m30s``."""
+    position = 0
+    total = 0
+    for match in _TIME_PART_RE.finditer(value.strip()):
+        if match.start() != position:
+            return None
+        total += int(match.group(1)) * _TIME_MULTIPLIER[match.group(2).lower()]
+        position = match.end()
+    return total if position == len(value.strip()) and position > 0 else None
 
 
 def check_sshd(config: dict[str, str], source: str = "") -> list[CheckResult]:
@@ -40,37 +59,47 @@ def check_sshd(config: dict[str, str], source: str = "") -> list[CheckResult]:
                 severity="high", remediation="Set 'PermitRootLogin no'.", source=source,
             )
         )
-    else:
+    elif root_login.lower() in ("no", "prohibit-password", "without-password", "forced-commands-only"):
         results.append(CheckResult("SSH-001", "ssh", "Root login restricted", "pass", f"PermitRootLogin {root_login}.", source=source))
+    else:
+        results.append(
+            CheckResult(
+                "SSH-001", "ssh", "Invalid PermitRootLogin value", "fail",
+                f"PermitRootLogin has an unrecognized value: {root_login!r}.",
+                severity="medium", remediation="Use a supported restricted value, preferably 'PermitRootLogin no'.", source=source,
+            )
+        )
 
     pw_auth = config.get("passwordauthentication")
-    if pw_auth is None or pw_auth.lower() == "yes":
+    if pw_auth is None or pw_auth.lower() != "no":
         results.append(
             CheckResult(
                 "SSH-002", "ssh", "Password authentication allowed", "fail",
-                "PasswordAuthentication is 'yes' or unset (defaults vary by distro).",
+                f"PasswordAuthentication is {pw_auth!r}; only an explicit 'no' disables it reliably.",
                 severity="medium", remediation="Set 'PasswordAuthentication no' and use key-based auth.", source=source,
             )
         )
     else:
         results.append(CheckResult("SSH-002", "ssh", "Password authentication disabled", "pass", "PasswordAuthentication no.", source=source))
 
-    if _yes(config.get("permitemptypasswords")):
+    empty_passwords = config.get("permitemptypasswords")
+    if empty_passwords is not None and empty_passwords.strip().lower() != "no":
         results.append(
             CheckResult(
                 "SSH-003", "ssh", "Empty passwords permitted", "fail",
-                "PermitEmptyPasswords yes allows accounts with blank passwords to log in.",
+                f"PermitEmptyPasswords is {empty_passwords!r}; only 'no' is a secure valid value.",
                 severity="high", remediation="Set 'PermitEmptyPasswords no'.", source=source,
             )
         )
     else:
         results.append(CheckResult("SSH-003", "ssh", "Empty passwords rejected", "pass", "PermitEmptyPasswords not enabled.", source=source))
 
-    if _yes(config.get("x11forwarding")):
+    x11_forwarding = config.get("x11forwarding")
+    if x11_forwarding is not None and x11_forwarding.strip().lower() != "no":
         results.append(
             CheckResult(
                 "SSH-004", "ssh", "X11 forwarding enabled", "fail",
-                "X11Forwarding yes increases attack surface unnecessarily for most servers.",
+                f"X11Forwarding is {x11_forwarding!r}; only 'no' disables it.",
                 severity="low", remediation="Set 'X11Forwarding no' unless required.", source=source,
             )
         )
@@ -94,7 +123,7 @@ def check_sshd(config: dict[str, str], source: str = "") -> list[CheckResult]:
         max_auth_val = int(max_auth) if max_auth else None
     except ValueError:
         max_auth_val = None
-    if max_auth_val is None or max_auth_val > 4:
+    if max_auth_val is None or not 1 <= max_auth_val <= 4:
         results.append(
             CheckResult(
                 "SSH-006", "ssh", "MaxAuthTries too permissive", "fail",
@@ -154,11 +183,12 @@ def check_sshd(config: dict[str, str], source: str = "") -> list[CheckResult]:
         results.append(CheckResult("SSH-009", "ssh", "KexAlgorithms not overridden", "unknown", "No explicit KexAlgorithms directive; relying on OpenSSH's built-in defaults.", source=source))
 
     grace = config.get("logingracetime")
-    if grace is not None and grace.strip() in ("0",):
+    grace_seconds = _duration_seconds(grace) if grace is not None else None
+    if grace is not None and (grace_seconds is None or grace_seconds == 0):
         results.append(
             CheckResult(
                 "SSH-010", "ssh", "Unlimited login grace time", "fail",
-                "LoginGraceTime 0 lets unauthenticated connections stay open indefinitely.",
+                f"LoginGraceTime {grace!r} is invalid or disables the authentication timeout.",
                 severity="medium", remediation="Set 'LoginGraceTime 30' (or similarly small).", source=source,
             )
         )
@@ -177,11 +207,12 @@ def check_sshd(config: dict[str, str], source: str = "") -> list[CheckResult]:
     else:
         results.append(CheckResult("SSH-011", "ssh", "TCP forwarding disabled", "pass", "AllowTcpForwarding not enabled.", source=source))
 
-    if _yes(config.get("gatewayports")):
+    gateway_ports = config.get("gatewayports")
+    if gateway_ports is not None and gateway_ports.strip().lower() != "no":
         results.append(
             CheckResult(
                 "SSH-012", "ssh", "GatewayPorts enabled", "fail",
-                "GatewayPorts yes lets forwarded ports bind to all interfaces, not just localhost.",
+                f"GatewayPorts is {gateway_ports!r}, which may let forwarded ports bind beyond localhost.",
                 severity="medium", remediation="Set 'GatewayPorts no'.", source=source,
             )
         )
@@ -383,23 +414,63 @@ _AUDITD_CHECKS = [
 ]
 
 
+def _audit_tokens(rule: str) -> list[str]:
+    try:
+        return shlex.split(rule)
+    except ValueError:
+        return rule.split()
+
+
+def _audit_watch_covers(rule: str, path: str) -> bool:
+    tokens = _audit_tokens(rule)
+    watched_path = None
+    permissions = ""
+    for index, token in enumerate(tokens):
+        if token == "-w" and index + 1 < len(tokens):
+            watched_path = tokens[index + 1]
+        elif token == "-p" and index + 1 < len(tokens):
+            permissions = tokens[index + 1]
+        elif token.startswith("path=") or token.startswith("dir="):
+            watched_path = token.split("=", 1)[1]
+        elif token.startswith("perm="):
+            permissions = token.split("=", 1)[1]
+    if watched_path is None:
+        return False
+    same_path = watched_path.rstrip("/") == path.rstrip("/")
+    return same_path and "w" in permissions and "a" in permissions
+
+
+def _audit_syscalls(rules: list[str]) -> set[str]:
+    syscalls: set[str] = set()
+    for rule in rules:
+        tokens = _audit_tokens(rule)
+        for index, token in enumerate(tokens):
+            if token == "-S" and index + 1 < len(tokens):
+                syscalls.update(item.strip() for item in tokens[index + 1].split(","))
+            elif token.startswith("-S") and len(token) > 2:
+                syscalls.update(item.strip() for item in token[2:].split(","))
+    return syscalls
+
+
 def check_auditd(rules: list[str], source: str = "") -> list[CheckResult]:
     results: list[CheckResult] = []
-    joined = "\n".join(rules)
 
     for check_id, paths, severity, fail_title, fail_detail in _AUDITD_CHECKS:
-        if any(path in joined for path in paths):
-            results.append(CheckResult(check_id, "auditd", f"Audit watch present for {'/'.join(paths)}", "pass", f"Found a rule referencing {paths[0]}.", source=source))
+        missing = [path for path in paths if not any(_audit_watch_covers(rule, path) for rule in rules)]
+        if not missing:
+            results.append(CheckResult(check_id, "auditd", f"Audit watch present for {', '.join(paths)}", "pass", "Found write/attribute watches for every required path.", source=source))
         else:
+            remediation = "; ".join(f"-w {path} -p wa -k identity" for path in missing)
             results.append(
                 CheckResult(
                     check_id, "auditd", fail_title, "fail", fail_detail,
-                    severity=severity, remediation=f"Add: -w {paths[0]} -p wa -k identity", source=source,
+                    severity=severity, remediation=f"Add: {remediation}", source=source,
                 )
             )
 
-    module_syscalls = ("init_module", "delete_module", "finit_module")
-    if any(s in joined for s in module_syscalls):
+    configured_syscalls = _audit_syscalls(rules)
+    module_syscalls = {"init_module", "delete_module", "finit_module"}
+    if module_syscalls <= configured_syscalls:
         results.append(CheckResult("AUDITD-005", "auditd", "Kernel module load/unload audited", "pass", "Found a syscall rule for module loading.", source=source))
     else:
         results.append(
@@ -410,8 +481,8 @@ def check_auditd(rules: list[str], source: str = "") -> list[CheckResult]:
             )
         )
 
-    time_syscalls = ("adjtimex", "settimeofday", "clock_settime")
-    if any(s in joined for s in time_syscalls) or "/etc/localtime" in joined:
+    time_syscalls = {"adjtimex", "settimeofday", "clock_settime"}
+    if time_syscalls <= configured_syscalls:
         results.append(CheckResult("AUDITD-006", "auditd", "Time changes audited", "pass", "Found a time-change audit rule.", source=source))
     else:
         results.append(
@@ -422,7 +493,7 @@ def check_auditd(rules: list[str], source: str = "") -> list[CheckResult]:
             )
         )
 
-    if "-e 2" in rules:
+    if any(_audit_tokens(rule) == ["-e", "2"] for rule in rules):
         results.append(CheckResult("AUDITD-007", "auditd", "Audit configuration locked", "pass", "'-e 2' makes the running audit configuration immutable.", source=source))
     else:
         results.append(

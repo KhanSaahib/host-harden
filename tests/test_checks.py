@@ -34,6 +34,27 @@ def test_check_sshd_unset_tcp_forwarding_does_not_false_pass():
     assert "SSH-011" in failed_ids  # AllowTcpForwarding defaults to yes
 
 
+def test_check_sshd_invalid_values_do_not_false_pass():
+    results = checks.check_sshd(
+        {
+            "permitrootlogin": "maybe",
+            "passwordauthentication": "maybe",
+            "permitemptypasswords": "maybe",
+            "x11forwarding": "maybe",
+            "maxauthtries": "-1",
+            "logingracetime": "forever",
+            "gatewayports": "clientspecified",
+        }
+    )
+    failed_ids = _ids_by_status(results, "fail")
+    assert {"SSH-001", "SSH-002", "SSH-003", "SSH-004", "SSH-006", "SSH-010", "SSH-012"} <= failed_ids
+
+
+def test_check_sshd_zero_duration_with_unit_fails():
+    results = checks.check_sshd({"logingracetime": "0s"})
+    assert "SSH-010" in _ids_by_status(results, "fail")
+
+
 def test_check_sysctl_hardened_all_pass():
     text = (FIXTURES / "hardened" / "sysctl.conf").read_text()
     results = checks.check_sysctl(parsers.parse_sysctl(text))
@@ -86,4 +107,16 @@ def test_check_auditd_hardened_all_pass():
 def test_check_auditd_vulnerable_flags_everything():
     text = (FIXTURES / "vulnerable" / "audit.rules").read_text()
     results = checks.check_auditd(parsers.parse_auditd_rules(text))
+    assert _ids_by_status(results, "fail") == {f"AUDITD-{i:03d}" for i in range(1, 8)}
+
+
+def test_check_auditd_rejects_substring_and_partial_rule_false_positives():
+    rules = [
+        "-w /etc/shadow.backup -p wa -k identity",
+        "-w /etc/passwd -p r -k identity",
+        "-a always,exit -S init_module -k modules",
+        "-a always,exit -S settimeofday -k time-change",
+        "-e 1",
+    ]
+    results = checks.check_auditd(rules)
     assert _ids_by_status(results, "fail") == {f"AUDITD-{i:03d}" for i in range(1, 8)}
