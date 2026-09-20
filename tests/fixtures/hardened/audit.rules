@@ -1,0 +1,9 @@
+-w /etc/passwd -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/group -p wa -k identity
+-w /etc/gshadow -p wa -k identity
+-w /etc/sudoers -p wa -k identity
+-w /etc/sudoers.d -p wa -k identity
+-a always,exit -F arch=b64 -S init_module,delete_module,finit_module -k modules
+-a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k time-change
+-e 2

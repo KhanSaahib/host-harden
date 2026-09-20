@@ -1,0 +1,6 @@
+# Vulnerable login.defs fixture
+PASS_MAX_DAYS   99999
+PASS_MIN_DAYS   0
+PASS_MIN_LEN    5
+PASS_WARN_AGE   0
+ENCRYPT_METHOD  MD5

@@ -1,0 +1,13 @@
+# Vulnerable sshd_config fixture
+PermitRootLogin yes
+PasswordAuthentication yes
+PermitEmptyPasswords yes
+X11Forwarding yes
+Protocol 2,1
+MaxAuthTries 10
+Ciphers aes128-cbc,3des-cbc,arcfour
+MACs hmac-md5,hmac-sha1
+KexAlgorithms diffie-hellman-group1-sha1
+LoginGraceTime 0
+AllowTcpForwarding yes
+GatewayPorts yes
