@@ -1,13 +1,67 @@
 # host-harden
 
-[![CI](https://github.com/KhanSaahib/host-harden/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/KhanSaahib/host-harden/actions/workflows/ci.yml?query=branch%3Amain)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+<p align="center">
+  <img src="docs/assets/host-harden-social.png" alt="A protected Linux server connected to host security controls" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://github.com/KhanSaahib/host-harden/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/KhanSaahib/host-harden/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+  <a href="https://www.python.org/downloads/"><img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-2563eb.svg"></a>
+  <img alt="Offline first" src="https://img.shields.io/badge/network-offline--first-0891b2.svg">
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-16a34a.svg"></a>
+</p>
+
+<p align="center"><strong>Know whether a Linux host is hardened—without installing an agent.</strong></p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#usage">Usage</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
+
+> [!TIP]
+> **Start here:** Run the fixture-backed [quick start](#quick-start). If it helps, [star this repo](https://github.com/KhanSaahib/host-harden) and [follow @KhanSaahib](https://github.com/KhanSaahib) for more practical blue-team tools.
 
 An offline, dependency-free Linux host-hardening auditor. It reads the
 config files that actually control a host's security posture — the SSH
 daemon, kernel network parameters, password aging policy, PAM modules,
 and auditd rules — and checks them against well-known hardening practices.
+
+- **Safe by design:** audit copied configuration files; no root access or agent required.
+- **Actionable:** every failure includes severity, evidence, and a remediation.
+- **Automation ready:** choose human-readable Markdown or schema-versioned JSON with CI exit codes.
+
+## Quick start
+
+Clone the project and run a complete audit against the included hardened
+fixture set:
+
+```bash
+git clone https://github.com/KhanSaahib/host-harden.git
+cd host-harden
+python -m pip install -e .
+host-harden \
+  --sshd-config tests/fixtures/hardened/sshd_config \
+  --sysctl tests/fixtures/hardened/sysctl.conf \
+  --login-defs tests/fixtures/hardened/login.defs \
+  --pam-password tests/fixtures/hardened/common-password \
+  --auditd-rules tests/fixtures/hardened/audit.rules \
+  --format markdown
+```
+
+Swap those fixture paths for copied configuration files from the host you
+want to assess.
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[Config snapshots] --> B[Strict parsers]
+    B --> C[Hardening checks]
+    C --> D[Markdown report]
+    C --> E[JSON and CI gate]
+```
 
 ## Why this exists
 
