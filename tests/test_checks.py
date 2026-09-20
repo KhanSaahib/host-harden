@@ -98,6 +98,17 @@ def test_check_pam_vulnerable_flags_everything():
     assert _ids_by_status(results, "fail") == {"PAM-001", "PAM-002", "PAM-003"}
 
 
+def test_check_pam_deny_zero_does_not_false_pass():
+    rules = parsers.parse_pam(
+        "auth required pam_faillock.so deny=0\n"
+        "password requisite pam_pwquality.so minlen=14\n"
+        "password required pam_unix.so nonullok_marker\n"
+    )
+    results = checks.check_pam(rules)
+    assert "PAM-002" in _ids_by_status(results, "fail")
+    assert "PAM-003" in _ids_by_status(results, "pass")
+
+
 def test_check_auditd_hardened_all_pass():
     text = (FIXTURES / "hardened" / "audit.rules").read_text()
     results = checks.check_auditd(parsers.parse_auditd_rules(text))

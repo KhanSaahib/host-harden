@@ -385,11 +385,23 @@ def check_pam(rules: list[dict[str, str]], source: str = "") -> list[CheckResult
                 severity="medium", remediation="Add pam_faillock.so (or pam_tally2.so) to the auth stack with a deny threshold.", source=source,
             )
         )
+    elif any("deny=0" in rule["args"].split() for rule in lockout_rules):
+        results.append(
+            CheckResult(
+                "PAM-002", "pam", "Account lockout explicitly disabled", "fail",
+                "A lockout module is present but deny=0 disables the failure threshold.",
+                severity="medium", remediation="Set a finite deny threshold such as 'deny=5'.", source=source,
+            )
+        )
     else:
         results.append(CheckResult("PAM-002", "pam", "Account lockout module configured", "pass", f"Found {lockout_rules[0]['module']}.", source=source))
 
     unix_rules = [r for r in rules if r["module"].split("/")[-1] == "pam_unix.so"]
-    nullok_rules = [r for r in unix_rules if "nullok" in r["args"]]
+    nullok_rules = [
+        r
+        for r in unix_rules
+        if {"nullok", "nullok_secure"} & set(r["args"].split())
+    ]
     if nullok_rules:
         results.append(
             CheckResult(
