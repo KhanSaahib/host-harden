@@ -11,8 +11,10 @@ requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "KhanSaahib" }]
+dependencies = []
 keywords = ["linux", "security", "hardening", "audit", "compliance"]
 classifiers = [
+    "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
     "Topic :: Security",
     "Environment :: Console",
@@ -28,12 +30,20 @@ classifiers = [
 Homepage = "https://github.com/KhanSaahib/host-harden"
 Issues = "https://github.com/KhanSaahib/host-harden/issues"
 Source = "https://github.com/KhanSaahib/host-harden"
+Changelog = "https://github.com/KhanSaahib/host-harden/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/KhanSaahib/host-harden#readme"
+Security = "https://github.com/KhanSaahib/host-harden/security/policy"
 
 [project.scripts]
 host-harden = "hostharden.__main__:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
+dev = ["build>=1.2", "pytest>=8"]
 
 [tool.setuptools.packages.find]
 include = ["hostharden*"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]

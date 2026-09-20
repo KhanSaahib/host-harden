@@ -32,5 +32,8 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
-      - run: python -m pip install build
+      - run: python -m pip install build twine
       - run: python -m build
+      - run: python -m twine check dist/*
+      - run: python -m pip install --force-reinstall dist/*.whl
+      - run: host-harden --version

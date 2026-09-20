@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/KhanSaahib/host-harden/security/advisories/new
+    about: Report vulnerabilities privately; do not open a public issue.
+  - name: Support guide
+    url: https://github.com/KhanSaahib/host-harden/blob/main/SUPPORT.md
+    about: Read the support and data-sanitization guidance before opening an issue.
