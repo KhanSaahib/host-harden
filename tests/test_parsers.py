@@ -27,6 +27,18 @@ def test_parse_sshd_config_ignores_comments_and_blanks():
     assert config == {"permitrootlogin": "no"}
 
 
+def test_parsers_strip_inline_comments_but_preserve_hash_values():
+    sshd = parsers.parse_sshd_config(
+        'Banner "/etc/issue # authorized users" # actual comment\n'
+    )
+    sysctl = parsers.parse_sysctl("net.ipv4.ip_forward = 0 # hardened\n")
+    login_defs = parsers.parse_login_defs("PASS_MAX_DAYS 90 # rotate\n")
+
+    assert sshd["banner"] == '"/etc/issue # authorized users"'
+    assert sysctl["net.ipv4.ip_forward"] == "0"
+    assert login_defs["PASS_MAX_DAYS"] == "90"
+
+
 def test_parse_sysctl_equals_form():
     config = parsers.parse_sysctl("net.ipv4.ip_forward = 1\n# comment\n")
     assert config["net.ipv4.ip_forward"] == "1"
@@ -62,6 +74,11 @@ def test_parse_pam_bracketed_control():
     assert rules[0]["control"] == "[success=1 default=ignore]"
     assert rules[0]["module"] == "pam_unix.so"
     assert rules[0]["args"] == "obscure nullok md5"
+
+
+def test_parse_pam_normalizes_optional_module_prefix():
+    rules = parsers.parse_pam("-password requisite pam_pwquality.so minlen=14\n")
+    assert rules[0]["type"] == "password"
 
 
 def test_parse_auditd_rules_strips_comments_and_blanks():

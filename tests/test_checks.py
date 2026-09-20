@@ -28,6 +28,12 @@ def test_check_sshd_vulnerable_flags_everything():
     assert "SSH-007" in high  # weak ciphers
 
 
+def test_check_sshd_unset_tcp_forwarding_does_not_false_pass():
+    results = checks.check_sshd({})
+    failed_ids = _ids_by_status(results, "fail")
+    assert "SSH-011" in failed_ids  # AllowTcpForwarding defaults to yes
+
+
 def test_check_sysctl_hardened_all_pass():
     text = (FIXTURES / "hardened" / "sysctl.conf").read_text()
     results = checks.check_sysctl(parsers.parse_sysctl(text))

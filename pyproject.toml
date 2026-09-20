@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,13 +8,27 @@ version = "0.1.0"
 description = "Offline Linux host-hardening auditor for sshd_config, sysctl, login.defs, PAM, and auditd rules."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "KhanSaahib" }]
+keywords = ["linux", "security", "hardening", "audit", "compliance"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Security",
     "Environment :: Console",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
+
+[project.urls]
+Homepage = "https://github.com/KhanSaahib/host-harden"
+Issues = "https://github.com/KhanSaahib/host-harden/issues"
+Source = "https://github.com/KhanSaahib/host-harden"
 
 [project.scripts]
 host-harden = "hostharden.__main__:main"

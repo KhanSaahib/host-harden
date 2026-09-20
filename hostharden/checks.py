@@ -165,11 +165,12 @@ def check_sshd(config: dict[str, str], source: str = "") -> list[CheckResult]:
     else:
         results.append(CheckResult("SSH-010", "ssh", "Login grace time bounded", "pass", f"LoginGraceTime {grace or 'default'}.", source=source))
 
-    if _yes(config.get("allowtcpforwarding")):
+    # AllowTcpForwarding also defaults to yes.
+    if config.get("allowtcpforwarding", "yes").strip().lower() != "no":
         results.append(
             CheckResult(
                 "SSH-011", "ssh", "TCP forwarding enabled", "fail",
-                "AllowTcpForwarding yes lets SSH be used as a generic tunnel/pivot.",
+                "AllowTcpForwarding is enabled or unset (the OpenSSH default is yes), allowing SSH to be used as a generic tunnel/pivot.",
                 severity="low", remediation="Set 'AllowTcpForwarding no' unless required.", source=source,
             )
         )

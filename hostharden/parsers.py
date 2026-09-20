@@ -8,6 +8,25 @@ goal is "extract what's there" rather than strict validation.
 from __future__ import annotations
 
 
+def _strip_inline_comment(line: str) -> str:
+    """Remove an unquoted, whitespace-delimited ``#`` comment."""
+    quote: str | None = None
+    escaped = False
+    for index, char in enumerate(line):
+        if escaped:
+            escaped = False
+            continue
+        if char == "\\" and quote == '"':
+            escaped = True
+            continue
+        if char in ("'", '"'):
+            quote = None if quote == char else char if quote is None else quote
+            continue
+        if char == "#" and quote is None and (index == 0 or line[index - 1].isspace()):
+            return line[:index].rstrip()
+    return line
+
+
 def parse_sshd_config(text: str) -> dict[str, str]:
     """Parse global (pre-``Match``) sshd_config directives.
 
@@ -17,7 +36,7 @@ def parse_sshd_config(text: str) -> dict[str, str]:
     """
     config: dict[str, str] = {}
     for raw_line in text.splitlines():
-        line = raw_line.strip()
+        line = _strip_inline_comment(raw_line).strip()
         if not line or line.startswith("#"):
             continue
         if line.split(None, 1)[0].lower() == "match":
@@ -36,7 +55,7 @@ def parse_sysctl(text: str) -> dict[str, str]:
     """Parse ``key = value`` (or ``key value``, as in ``sysctl -a`` output)."""
     config: dict[str, str] = {}
     for raw_line in text.splitlines():
-        line = raw_line.strip()
+        line = _strip_inline_comment(raw_line).strip()
         if not line or line.startswith("#") or line.startswith(";"):
             continue
         if "=" in line:
@@ -54,7 +73,7 @@ def parse_login_defs(text: str) -> dict[str, str]:
     """Parse ``/etc/login.defs`` (whitespace-separated KEY VALUE lines)."""
     config: dict[str, str] = {}
     for raw_line in text.splitlines():
-        line = raw_line.strip()
+        line = _strip_inline_comment(raw_line).strip()
         if not line or line.startswith("#"):
             continue
         parts = line.split(None, 1)
@@ -73,13 +92,15 @@ def parse_pam(text: str) -> list[dict[str, str]]:
     """
     rules: list[dict[str, str]] = []
     for raw_line in text.splitlines():
-        line = raw_line.strip()
+        line = _strip_inline_comment(raw_line).strip()
         if not line or line.startswith("#") or line.startswith("@"):
             continue
         parts = line.split()
         if len(parts) < 3:
             continue
-        ptype = parts[0]
+        # A leading dash asks PAM to ignore a missing module; it is not part of
+        # the management group name.
+        ptype = parts[0].lstrip("-")
         rest = parts[1:]
         if rest[0].startswith("["):
             # Bracketed control syntax, e.g. "[success=1 default=ignore]",
@@ -113,7 +134,7 @@ def parse_auditd_rules(text: str) -> list[str]:
     """Parse an auditd rules file into a list of normalized rule lines."""
     rules: list[str] = []
     for raw_line in text.splitlines():
-        line = raw_line.strip()
+        line = _strip_inline_comment(raw_line).strip()
         if not line or line.startswith("#"):
             continue
         rules.append(line)

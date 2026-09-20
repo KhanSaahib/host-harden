@@ -61,3 +61,13 @@ def test_cli_writes_to_output_file(tmp_path):
     main(_argv("hardened", ["--format", "json", "--output", str(out_file)]))
     payload = json.loads(out_file.read_text())
     assert "score" in payload
+
+
+def test_cli_version(capsys):
+    try:
+        main(["--version"])
+    except SystemExit as exc:
+        assert exc.code == 0
+    else:
+        raise AssertionError("expected SystemExit from argparse version action")
+    assert "host-harden 0.1.0" in capsys.readouterr().out

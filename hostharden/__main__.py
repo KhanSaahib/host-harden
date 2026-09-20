@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import checks, parsers
+from . import __version__, checks, parsers
 from .models import Report
 from .report import to_json, to_markdown
 
@@ -25,6 +25,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--auditd-rules", type=Path, nargs="+", help="One or more auditd rules.d files")
     parser.add_argument("--format", choices=["markdown", "json"], default="markdown")
     parser.add_argument("--output", type=Path, help="Write report to this path instead of stdout")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "--fail-on",
         choices=_FAIL_ON_ORDER,
@@ -38,25 +39,25 @@ def run(args: argparse.Namespace) -> Report:
     report = Report()
 
     if args.sshd_config:
-        text = args.sshd_config.read_text()
+        text = args.sshd_config.read_text(encoding="utf-8")
         report.extend(checks.check_sshd(parsers.parse_sshd_config(text), source=str(args.sshd_config)))
 
     if args.sysctl:
-        text = args.sysctl.read_text()
+        text = args.sysctl.read_text(encoding="utf-8")
         report.extend(checks.check_sysctl(parsers.parse_sysctl(text), source=str(args.sysctl)))
 
     if args.login_defs:
-        text = args.login_defs.read_text()
+        text = args.login_defs.read_text(encoding="utf-8")
         report.extend(checks.check_login_defs(parsers.parse_login_defs(text), source=str(args.login_defs)))
 
     if args.pam_password:
-        text = args.pam_password.read_text()
+        text = args.pam_password.read_text(encoding="utf-8")
         report.extend(checks.check_pam(parsers.parse_pam(text), source=str(args.pam_password)))
 
     if args.auditd_rules:
         combined: list[str] = []
         for path in args.auditd_rules:
-            combined.extend(parsers.parse_auditd_rules(path.read_text()))
+            combined.extend(parsers.parse_auditd_rules(path.read_text(encoding="utf-8")))
         report.extend(checks.check_auditd(combined, source=", ".join(str(p) for p in args.auditd_rules)))
 
     return report
@@ -74,7 +75,7 @@ def main(argv: list[str] | None = None) -> int:
     output = to_json(report) if args.format == "json" else to_markdown(report)
 
     if args.output:
-        args.output.write_text(output)
+        args.output.write_text(output, encoding="utf-8")
     else:
         print(output)
 

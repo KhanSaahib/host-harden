@@ -1,5 +1,9 @@
 # host-harden
 
+[![CI](https://github.com/KhanSaahib/host-harden/actions/workflows/ci.yml/badge.svg)](https://github.com/KhanSaahib/host-harden/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 An offline, dependency-free Linux host-hardening auditor. It reads the
 config files that actually control a host's security posture — the SSH
 daemon, kernel network parameters, password aging policy, PAM modules,
@@ -41,14 +45,13 @@ you gave it). Nothing is scored as a failure just because data was missing.
 
 ## Install
 
-Stdlib only — no runtime dependencies.
+Stdlib only — no runtime dependencies. Python 3.10 or newer is required.
 
 ```bash
 git clone https://github.com/KhanSaahib/host-harden.git
 cd host-harden
-python3 -m pytest tests/ -q      # optional: run the test suite
-
-python -m pip install -e .[dev]  # or: pip install .
+python -m pip install -e ".[dev]"  # or: pip install .
+python -m pytest -q               # optional: run the test suite
 host-harden --help
 ```
 
